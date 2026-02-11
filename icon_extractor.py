@@ -347,16 +347,16 @@ class IconExtractorWindow(QMainWindow):
         desc_layout.setSpacing(4)
         
         desc_line1 = QLabel("Extract the item icons from Entropia Universe cache and convert them to PNG.")
-        desc_line1.setStyleSheet("color: #666666; font-size: 13px;")
+        desc_line1.setStyleSheet("color: #aaaaaa; font-size: 13px;")
         desc_layout.addWidget(desc_line1)
         
         desc_line2 = QLabel("You can submit these to ")
-        desc_line2.setStyleSheet("color: #666666; font-size: 13px;")
+        desc_line2.setStyleSheet("color: #aaaaaa; font-size: 13px;")
         desc_line2.setOpenExternalLinks(True)
         
         # Clickable link - Entropia Nexus text links to entropianexus.com
-        link_label = QLabel('<a href="https://entropianexus.com" style="color: #2e7d32; text-decoration: none;">Entropia Nexus</a> to help complete the item database.')
-        link_label.setStyleSheet("font-size: 13px;")
+        link_label = QLabel('<a href="https://entropianexus.com" style="color: #4caf50; text-decoration: none;">Entropia Nexus</a> to help complete the item database.')
+        link_label.setStyleSheet("font-size: 13px; color: #aaaaaa;")
         link_label.setOpenExternalLinks(True)
         
         desc_line2_layout = QHBoxLayout()
