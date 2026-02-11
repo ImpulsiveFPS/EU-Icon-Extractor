@@ -233,12 +233,11 @@ class ConversionWorker(QThread):
 
 
 class PreviewDialog(QDialog):
-    """Dialog to preview a TGA file."""
+    """Dialog to preview a TGA file at original resolution."""
     
     def __init__(self, tga_path: Path, converter: TGAConverter, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Preview: {tga_path.name}")
-        self.setMinimumSize(400, 450)
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
@@ -246,29 +245,35 @@ class PreviewDialog(QDialog):
         # Info
         info = converter.read_tga_header(tga_path)
         if info:
-            info_label = QLabel(f"Original: {info.width}x{info.height}, {info.pixel_depth}bpp")
-            info_label.setStyleSheet("color: #888; font-size: 12px;")
+            info_label = QLabel(f"Original Resolution: {info.width}x{info.height} pixels, {info.pixel_depth}bpp")
+            info_label.setStyleSheet("color: #888; font-size: 13px; font-weight: bold;")
             layout.addWidget(info_label)
         
-        # Load and display TGA
+        # Load and display TGA at original size
         image = converter.load_tga_image(tga_path)
         if image:
-            # Convert to QPixmap
+            # Convert to QPixmap at original size
             img_data = image.tobytes("raw", "RGBA")
             qimage = QImage(img_data, image.width, image.height, QImage.Format.Format_RGBA8888)
             pixmap = QPixmap.fromImage(qimage)
             
-            # Scale for display (max 320x320)
-            scaled = pixmap.scaled(320, 320, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            
+            # Show at original size
             img_label = QLabel()
-            img_label.setPixmap(scaled)
+            img_label.setPixmap(pixmap)
             img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            img_label.setStyleSheet("background-color: #2a2a2a; border: 1px solid #444; padding: 10px;")
-            layout.addWidget(img_label)
+            img_label.setStyleSheet("background-color: #2a2a2a; border: 1px solid #444; padding: 5px;")
             
-            size_label = QLabel(f"Displayed at: {scaled.width()}x{scaled.height()}")
-            size_label.setStyleSheet("color: #888; font-size: 11px;")
+            # Add to scroll area for large images
+            scroll = QScrollArea()
+            scroll.setWidget(img_label)
+            scroll.setWidgetResizable(True)
+            scroll.setMinimumSize(min(image.width + 40, 800), min(image.height + 40, 600))
+            scroll.setMaximumSize(800, 600)
+            layout.addWidget(scroll)
+            
+            # Show actual size info
+            size_label = QLabel(f"Displayed at: {image.width}x{image.height} (Original Size)")
+            size_label.setStyleSheet("color: #4caf50; font-size: 12px;")
             size_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(size_label)
         else:
@@ -280,6 +285,12 @@ class PreviewDialog(QDialog):
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
+        
+        # Resize dialog to fit image (with max limits)
+        if image:
+            dialog_width = min(image.width + 50, 820)
+            dialog_height = min(image.height + 150, 700)
+            self.resize(dialog_width, dialog_height)
 
 
 class IconExtractorWindow(QMainWindow):
