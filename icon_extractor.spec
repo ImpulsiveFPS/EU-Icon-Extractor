@@ -7,7 +7,7 @@ a = Analysis(
     ['icon_extractor.py'],
     pathex=[],
     binaries=[],
-    datas=[('icon.ico', '.'), ('assets/icon.ico', 'assets')],
+    datas=[('icon.ico', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,10 +35,10 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # No console window
+    console=False,
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico',  # App icon
+    icon='icon.ico',
 )
