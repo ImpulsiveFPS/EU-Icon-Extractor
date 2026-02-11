@@ -106,6 +106,9 @@ class TGAConverter:
             if output_name is None:
                 output_name = tga_path.stem
             
+            # Ensure output directory exists before saving
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            
             output_path = self.output_dir / f"{output_name}.png"
             image.save(output_path, 'PNG')
             
