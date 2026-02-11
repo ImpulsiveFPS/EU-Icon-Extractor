@@ -503,7 +503,7 @@ class IconExtractorWindow(QMainWindow):
         footer_layout.setContentsMargins(10, 10, 10, 10)
         footer_layout.setSpacing(5)
         
-        footer_line1 = QLabel('<a href="https://github.com/ImpulsiveFPS/EU-Icon-Extractor" style="color: #888;">GitHub</a> | <a href="https://ko-fi.com/impulsivefps" style="color: #ff6b6b;">☕ Support me on Ko-fi</a>')
+        footer_line1 = QLabel('Developed by ImpulsiveFPS | <a href="https://github.com/ImpulsiveFPS/EU-Icon-Extractor" style="color: #888;">GitHub</a> | <a href="https://ko-fi.com/impulsivefps" style="color: #ff6b6b;">Support me on Ko-fi</a>')
         footer_line1.setStyleSheet("color: #888; font-size: 11px;")
         footer_line1.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer_line1.setOpenExternalLinks(True)
