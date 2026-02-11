@@ -569,9 +569,10 @@ class IconExtractorWindow(QMainWindow):
         footer_layout.setSpacing(5)
         
         # First line - developer info (no emojis)
-        footer_line1 = QLabel(f"Developed by {DEVELOPER} | Discord: {DISCORD} | GitHub: (coming soon)")
+        footer_line1 = QLabel(f'Developed by {DEVELOPER} | Discord: {DISCORD} | <a href="https://github.com/ImpulsiveFPS/EU-Icon-Extractor" style="color: #888;">GitHub</a>')
         footer_line1.setStyleSheet("color: #888; font-size: 11px;")
         footer_line1.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        footer_line1.setOpenExternalLinks(True)
         footer_layout.addWidget(footer_line1)
         
         # Support me line
