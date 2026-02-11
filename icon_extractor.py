@@ -574,6 +574,13 @@ class IconExtractorWindow(QMainWindow):
         footer_line1.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer_layout.addWidget(footer_line1)
         
+        # Support me line
+        support_label = QLabel('<a href="https://ko-fi.com/impulsivefps" style="color: #ff6b6b;">☕ Support me on Ko-fi</a>')
+        support_label.setStyleSheet("color: #888; font-size: 11px;")
+        support_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        support_label.setOpenExternalLinks(True)
+        footer_layout.addWidget(support_label)
+        
         # Second line - disclaimer with links (no emojis)
         disclaimer_widget = QWidget()
         disclaimer_layout = QHBoxLayout(disclaimer_widget)

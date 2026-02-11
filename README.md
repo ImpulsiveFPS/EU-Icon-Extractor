@@ -45,6 +45,7 @@ Documents\Entropia Universe\Icons\
 - **Developer:** ImpulsiveFPS
 - **Discord:** impulsivefps
 - **GitHub:** https://github.com/ImpulsiveFPS/EU-Icon-Extractor
+- **Support Me:** https://ko-fi.com/impulsivefps
 
 ## Disclaimer
 
