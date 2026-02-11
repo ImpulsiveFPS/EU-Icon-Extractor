@@ -1,16 +1,16 @@
-# 🎮 Entropia Universe Icon Extractor
+# Entropia Universe Icon Extractor
 
 A standalone tool for extracting item icons from Entropia Universe game cache.
 
-![Icon](icon.ico)
+<img src="icon.ico" width="64" height="64" alt="EU Icon Extractor">
 
-## 📝 Description
+## Description
 
-Extract item icons from Entropia Universe cache and convert them to PNG format. These icons can be submitted to [EntropiaNexus.com](https://EntropiaNexus.com) to help complete the item database.
+Extract item icons from Entropia Universe cache and convert them to PNG format.
 
-**⚠️ Important:** Items must be seen/rendered in-game before they appear in the cache! If an icon is missing, view the item in your inventory or the auction first.
+**Important:** Items must be seen/rendered in-game before they appear in the cache! If an icon is missing, view the item in your inventory or the auction first.
 
-## 🚀 Usage
+## Usage
 
 ```bash
 python icon_extractor.py
@@ -21,7 +21,7 @@ python icon_extractor.py
 - PyQt6: `pip install PyQt6`
 - Pillow: `pip install Pillow`
 
-## 🎨 Features
+## Features
 
 - **Auto-detects** game cache from `C:\ProgramData\Entropia Universe\public_users_data\cache\icon`
 - **Version selector** - Choose which game version to extract from
@@ -31,7 +31,7 @@ python icon_extractor.py
 - **Light/Dark theme** - Toggle between themes
 - **Custom output folder** - Choose where to save extracted icons
 
-## 📂 Output
+## Output
 
 Icons are saved to your Documents folder:
 ```
@@ -40,16 +40,16 @@ Documents\Entropia Universe\Icons\
 
 (Same location where `chat.log` is normally stored)
 
-## 🌐 Links
+## Links
 
 - **Developer:** ImpulsiveFPS
 - **Discord:** impulsivefps
-- **Website:** [EntropiaNexus.com](https://EntropiaNexus.com)
+- **GitHub:** https://github.com/ImpulsiveFPS/EU-Icon-Extractor
 
-## ⚖️ Disclaimer
+## Disclaimer
 
 Entropia Universe Icon Extractor is a fan-made resource and is not affiliated with [MindArk PE AB](https://www.mindark.com/). [Entropia Universe](https://www.entropiauniverse.com/) is a trademark of MindArk PE AB.
 
-## 📄 License
+## License
 
 MIT License - Feel free to use and modify!

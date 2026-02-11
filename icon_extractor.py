@@ -2,58 +2,38 @@
 Entropia Universe Icon Extractor
 A standalone tool for extracting game icons from cache.
 
-Description: Extracts item icons from Entropia Universe game cache and converts
-them to PNG format for use with EntropiaNexus.com wiki submissions.
-
-Important: Items must be seen/rendered in-game before they appear in the cache.
-
 Usage:
-    python standalone_icon_extractor.py
-
-Output Location:
-    Icons are saved to your Documents/Entropia Universe/Icons/ folder
-    (same location where chat.log is normally stored)
+    python icon_extractor.py
 
 Developer: ImpulsiveFPS
 Discord: impulsivefps
-Website: https://EntropiaNexus.com
-
-Disclaimer:
-    Entropia Universe Icon Extractor is a fan-made resource and is not 
-    affiliated with MindArk PE AB. Entropia Universe is a trademark of 
-    MindArk PE AB.
+GitHub: https://github.com/ImpulsiveFPS/EU-Icon-Extractor
 """
 
 import sys
 import logging
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import Optional, List
 import ctypes
 
 try:
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
         QLabel, QPushButton, QComboBox, QListWidget, QListWidgetItem,
-        QFileDialog, QProgressBar, QGroupBox, QMessageBox, QCheckBox,
-                QSplitter, QTextEdit, QDialog, QScrollArea, QFrame
+        QFileDialog, QProgressBar, QGroupBox, QMessageBox,
+        QTextEdit, QDialog, QScrollArea
     )
-    from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSettings, QSize
-    from PyQt6.QtGui import QIcon, QPixmap, QFont, QImage
-    PYQT_AVAILABLE = True
+    from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSettings
+    from PyQt6.QtGui import QIcon, QPixmap, QImage
 except ImportError:
-    PYQT_AVAILABLE = False
     print("PyQt6 not available. Install with: pip install PyQt6")
     sys.exit(1)
 
 try:
-    from PIL import Image, ImageFilter
-    PIL_AVAILABLE = True
+    from PIL import Image
 except ImportError:
-    PIL_AVAILABLE = False
     print("Pillow not available. Install with: pip install Pillow")
     sys.exit(1)
-
-import numpy as np
 
 # Setup logging
 logging.basicConfig(
@@ -68,7 +48,6 @@ APP_NAME = "Entropia Universe Icon Extractor"
 APP_VERSION = "1.0.0"
 DEVELOPER = "ImpulsiveFPS"
 DISCORD = "impulsivefps"
-WEBSITE = "https://EntropiaNexus.com"
 
 
 class TGAHeader:
