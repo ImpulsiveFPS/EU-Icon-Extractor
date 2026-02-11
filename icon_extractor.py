@@ -1024,14 +1024,39 @@ class IconExtractorWindow(QMainWindow):
 
 
 def set_app_icon(app: QApplication):
-    """Set application icon (window icon is set per-window in _load_icon)."""
-    # Icon is loaded per-window in IconExtractorWindow._load_icon()
-    # This function is kept for compatibility but doesn't need to do anything
-    pass
+    """Set application icon for window and taskbar."""
+    # Try to load icon from various locations
+    icon_paths = [
+        Path(__file__).parent / "assets" / "icon.ico",
+        Path(__file__).parent / "assets" / "icon.png",
+        Path(__file__).parent / "icon.ico",
+        Path(__file__).parent / "icon.png",
+    ]
+    
+    for icon_path in icon_paths:
+        if icon_path.exists():
+            app.setWindowIcon(QIcon(str(icon_path)))
+            return True
+    return False
+
+
+def set_windows_taskbar_icon():
+    """Set Windows taskbar icon properly."""
+    if sys.platform == 'win32':
+        # Set the AppUserModelID to ensure taskbar shows our icon
+        try:
+            import ctypes
+            myappid = 'impulsivefps.euiconextractor.1.0'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except Exception:
+            pass
 
 
 def main():
     """Main entry point."""
+    # Set Windows taskbar icon before creating QApplication
+    set_windows_taskbar_icon()
+    
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     
@@ -1040,10 +1065,10 @@ def main():
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName("ImpulsiveFPS")
     
-    # Try to set icon
+    # Set app icon (for taskbar and window)
     set_app_icon(app)
     
-    # Dark theme with better readability
+    # Dark theme by default
     app.setStyleSheet("""
         QMainWindow, QDialog {
             background-color: #1e1e1e;
