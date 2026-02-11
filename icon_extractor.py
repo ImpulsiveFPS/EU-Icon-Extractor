@@ -347,20 +347,21 @@ class IconExtractorWindow(QMainWindow):
         desc_layout.setSpacing(4)
         
         desc_line1 = QLabel("Extract the item icons from Entropia Universe cache and convert them to PNG.")
-        desc_line1.setStyleSheet("color: #cccccc; font-size: 13px;")
+        desc_line1.setStyleSheet("color: #666666; font-size: 13px;")
         desc_layout.addWidget(desc_line1)
         
         desc_line2 = QLabel("You can submit these to ")
-        desc_line2.setStyleSheet("color: #cccccc; font-size: 13px;")
+        desc_line2.setStyleSheet("color: #666666; font-size: 13px;")
         desc_line2.setOpenExternalLinks(True)
         
-        # Clickable link
-        link_label = QLabel('<a href="https://EntropiaNexus.com" style="color: #4caf50;">EntropiaNexus.com</a> to help complete the item database.')
+        # Clickable link - Entropia Nexus text links to entropianexus.com
+        link_label = QLabel('<a href="https://entropianexus.com" style="color: #2e7d32; text-decoration: none;">Entropia Nexus</a> to help complete the item database.')
         link_label.setStyleSheet("font-size: 13px;")
         link_label.setOpenExternalLinks(True)
         
         desc_line2_layout = QHBoxLayout()
         desc_line2_layout.setContentsMargins(0, 0, 0, 0)
+        desc_line2_layout.setSpacing(0)
         desc_line2_layout.addWidget(desc_line2)
         desc_line2_layout.addWidget(link_label)
         desc_line2_layout.addStretch()
@@ -423,7 +424,7 @@ class IconExtractorWindow(QMainWindow):
         output_layout.setSpacing(10)
         
         output_info = QLabel("📁 Icons saved to your Documents folder (same location as chat.log)")
-        output_info.setStyleSheet("color: #aaaaaa; font-size: 12px;")
+        output_info.setStyleSheet("color: #666666; font-size: 12px;")
         output_info.setWordWrap(True)
         output_layout.addWidget(output_info)
         
@@ -451,7 +452,7 @@ class IconExtractorWindow(QMainWindow):
         files_layout.setSpacing(10)
         
         files_info = QLabel("💡 Double-click an icon to preview. Select icons to extract (or leave blank for all).")
-        files_info.setStyleSheet("color: #aaaaaa; font-size: 12px;")
+        files_info.setStyleSheet("color: #666666; font-size: 12px;")
         files_layout.addWidget(files_info)
         
         self.files_count_label = QLabel("❓ No files found")
@@ -466,52 +467,64 @@ class IconExtractorWindow(QMainWindow):
         
         layout.addWidget(files_group, 1)
         
-        # Bottom buttons row
-        bottom_layout = QHBoxLayout()
+        # Bottom buttons area
+        bottom_widget = QWidget()
+        bottom_layout = QHBoxLayout(bottom_widget)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
         bottom_layout.setSpacing(15)
         
-        # Select buttons
+        # Left side: Select buttons
+        select_layout = QHBoxLayout()
+        select_layout.setSpacing(10)
+        
         select_all_btn = QPushButton("☑️ Select All")
         select_all_btn.setMaximumWidth(100)
         select_all_btn.setStyleSheet("font-size: 11px; padding: 5px;")
         select_all_btn.clicked.connect(self.files_list.selectAll)
-        bottom_layout.addWidget(select_all_btn)
+        select_layout.addWidget(select_all_btn)
         
         select_none_btn = QPushButton("⬜ Select None")
         select_none_btn.setMaximumWidth(100)
         select_none_btn.setStyleSheet("font-size: 11px; padding: 5px;")
         select_none_btn.clicked.connect(self.files_list.clearSelection)
-        bottom_layout.addWidget(select_none_btn)
+        select_layout.addWidget(select_none_btn)
         
+        bottom_layout.addLayout(select_layout)
         bottom_layout.addStretch()
         
-        # Open Output Folder button
-        open_folder_btn = QPushButton("📂 Open Output Folder")
-        open_folder_btn.setMaximumWidth(150)
-        open_folder_btn.setStyleSheet("font-size: 11px; padding: 5px;")
-        open_folder_btn.clicked.connect(self._open_output_folder)
-        bottom_layout.addWidget(open_folder_btn)
+        # Right side: Main buttons stacked vertically
+        right_buttons = QVBoxLayout()
+        right_buttons.setSpacing(8)
+        right_buttons.setAlignment(Qt.AlignmentFlag.AlignRight)
         
-        # Main action button
+        # Main action button - GREEN
         self.convert_btn = QPushButton("▶️ Start Extracting Icons")
-        self.convert_btn.setMinimumHeight(55)
-        self.convert_btn.setMinimumWidth(200)
+        self.convert_btn.setFixedSize(200, 45)
         self.convert_btn.setStyleSheet("""
             QPushButton {
-                background-color: #1565c0;
+                background-color: #4caf50;
                 font-weight: bold;
-                font-size: 14px;
+                font-size: 13px;
                 border-radius: 5px;
-                padding: 12px;
+                padding: 10px;
                 color: white;
             }
-            QPushButton:hover { background-color: #1976d2; }
-            QPushButton:disabled { background-color: #424242; color: #888; }
+            QPushButton:hover { background-color: #66bb6a; }
+            QPushButton:disabled { background-color: #757575; color: #bdbdbd; }
         """)
         self.convert_btn.clicked.connect(self._start_conversion)
-        bottom_layout.addWidget(self.convert_btn)
+        right_buttons.addWidget(self.convert_btn)
         
-        layout.addLayout(bottom_layout)
+        # Open Output Folder button - same size
+        open_folder_btn = QPushButton("📂 Open Output Folder")
+        open_folder_btn.setFixedSize(200, 35)
+        open_folder_btn.setStyleSheet("font-size: 11px; padding: 5px;")
+        open_folder_btn.clicked.connect(self._open_output_folder)
+        right_buttons.addWidget(open_folder_btn)
+        
+        bottom_layout.addLayout(right_buttons)
+        
+        layout.addWidget(bottom_widget)
         
         # Progress
         self.progress_bar = QProgressBar()
@@ -741,11 +754,13 @@ class IconExtractorWindow(QMainWindow):
                 border-radius: 6px;
                 margin-top: 12px;
                 padding-top: 12px;
+                color: #333333;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 12px;
                 padding: 0 8px;
+                color: #333333;
             }
             QPushButton {
                 background-color: #e0e0e0;
@@ -790,15 +805,17 @@ class IconExtractorWindow(QMainWindow):
                 background-color: #4caf50;
             }
             QTextEdit {
-                background-color: #ffffff;
-                border: 1px solid #cccccc;
-                color: #333333;
+                background-color: #2d2818;
+                border: 1px solid #5d4e37;
+                color: #ffc107;
             }
             QCheckBox {
                 font-size: 12px;
+                color: #333333;
             }
             QLabel {
                 font-size: 12px;
+                color: #333333;
             }
         """)
     
