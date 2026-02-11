@@ -11,10 +11,11 @@ GitHub: https://github.com/ImpulsiveFPS/EU-Icon-Extractor
 """
 
 import sys
-import logging
+import os
+import subprocess
+import webbrowser
 from pathlib import Path
 from typing import Optional, List
-import ctypes
 
 try:
     from PyQt6.QtWidgets import (
@@ -35,19 +36,9 @@ except ImportError:
     print("Pillow not available. Install with: pip install Pillow")
     sys.exit(1)
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 
 # Application metadata
 APP_NAME = "Entropia Universe Icon Extractor"
-APP_VERSION = "1.0.0"
-DEVELOPER = "ImpulsiveFPS"
-DISCORD = "impulsivefps"
 
 
 class TGAHeader:
@@ -73,28 +64,14 @@ class TGAHeader:
 class TGAConverter:
     """Converter for TGA files to PNG with 320x320 canvas."""
     
-    CANVAS_SIZE = (320, 320)  # Hardcoded to 320x320
+    CANVAS_SIZE = (320, 320)
     
     def __init__(self, output_dir: Optional[Path] = None):
-        # Default to user's Documents/Entropia Universe/Icons/
-        # This works on any Windows username
         if output_dir is None:
             self.output_dir = Path.home() / "Documents" / "Entropia Universe" / "Icons"
         else:
             self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self._cache_path: Optional[Path] = None
-    
-    def find_cache_folder(self) -> Optional[Path]:
-        """Find the Entropia Universe icon cache folder."""
-        # Hardcoded path - works on any system with EU installed
-        cache_path = Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon")
-        
-        if cache_path.exists():
-            self._cache_path = cache_path
-            return cache_path
-        
-        return None
     
     def read_tga_header(self, filepath: Path) -> Optional[TGAHeader]:
         """Read TGA header from file."""
@@ -104,8 +81,7 @@ class TGAConverter:
                 if len(header_data) < 18:
                     return None
                 return TGAHeader(header_data)
-        except Exception as e:
-            logger.error(f"Error reading TGA header: {e}")
+        except Exception:
             return None
     
     def load_tga_image(self, filepath: Path) -> Optional[Image.Image]:
@@ -115,31 +91,18 @@ class TGAConverter:
             if image.mode != 'RGBA':
                 image = image.convert('RGBA')
             return image
-        except Exception as e:
-            logger.error(f"Error loading TGA: {e}")
+        except Exception:
             return None
     
     def convert_tga_to_png(self, tga_path: Path, output_name: Optional[str] = None) -> Optional[Path]:
-        """
-        Convert a TGA file to PNG with 320x320 canvas.
-        
-        Args:
-            tga_path: Path to TGA file
-            output_name: Optional custom output name
-            
-        Returns:
-            Path to output PNG file or None if failed
-        """
+        """Convert a TGA file to PNG with 320x320 canvas."""
         try:
-            # Load TGA
             image = self.load_tga_image(tga_path)
             if not image:
                 return None
             
-            # Apply 320x320 canvas (centered, no upscaling)
             image = self._apply_canvas(image)
             
-            # Save
             if output_name is None:
                 output_name = tga_path.stem
             
@@ -148,22 +111,16 @@ class TGAConverter:
             
             return output_path
             
-        except Exception as e:
-            logger.error(f"Conversion failed: {e}")
+        except Exception:
             return None
     
     def _apply_canvas(self, image: Image.Image) -> Image.Image:
-        """
-        Place image centered on a 320x320 canvas.
-        No upscaling - original size centered on canvas.
-        """
+        """Place image centered on a 320x320 canvas."""
         canvas_w, canvas_h = self.CANVAS_SIZE
         img_w, img_h = image.size
         
-        # Create transparent canvas
         canvas = Image.new('RGBA', self.CANVAS_SIZE, (0, 0, 0, 0))
         
-        # Center on canvas (no scaling)
         x = (canvas_w - img_w) // 2
         y = (canvas_h - img_h) // 2
         
@@ -174,8 +131,8 @@ class TGAConverter:
 class ConversionWorker(QThread):
     """Background worker for batch conversion."""
     progress = pyqtSignal(str)
-    file_done = pyqtSignal(str, str)  # filename, output_path
-    finished = pyqtSignal(int, int)  # success, total
+    file_done = pyqtSignal(str, str)
+    finished = pyqtSignal(int, int)
     error = pyqtSignal(str)
     
     def __init__(self, files: List[Path], converter: TGAConverter):
@@ -221,28 +178,23 @@ class PreviewDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         
-        # Info
         info = converter.read_tga_header(tga_path)
         if info:
             info_label = QLabel(f"Original Resolution: {info.width}x{info.height} pixels, {info.pixel_depth}bpp")
             info_label.setStyleSheet("color: #888; font-size: 13px; font-weight: bold;")
             layout.addWidget(info_label)
         
-        # Load and display TGA at original size
         image = converter.load_tga_image(tga_path)
         if image:
-            # Convert to QPixmap at original size
             img_data = image.tobytes("raw", "RGBA")
             qimage = QImage(img_data, image.width, image.height, QImage.Format.Format_RGBA8888)
             pixmap = QPixmap.fromImage(qimage)
             
-            # Show at original size
             img_label = QLabel()
             img_label.setPixmap(pixmap)
             img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             img_label.setStyleSheet("background-color: #2a2a2a; border: 1px solid #444; padding: 5px;")
             
-            # Add to scroll area for large images
             scroll = QScrollArea()
             scroll.setWidget(img_label)
             scroll.setWidgetResizable(True)
@@ -250,26 +202,22 @@ class PreviewDialog(QDialog):
             scroll.setMaximumSize(800, 600)
             layout.addWidget(scroll)
             
-            # Show actual size info
             size_label = QLabel(f"Displayed at: {image.width}x{image.height} (Original Size)")
             size_label.setStyleSheet("color: #4caf50; font-size: 12px;")
             size_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(size_label)
+            
+            dialog_width = min(image.width + 50, 820)
+            dialog_height = min(image.height + 150, 700)
+            self.resize(dialog_width, dialog_height)
         else:
             error_label = QLabel("Failed to load image")
             error_label.setStyleSheet("color: #f44336;")
             layout.addWidget(error_label)
         
-        # Close button
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
-        
-        # Resize dialog to fit image (with max limits)
-        if image:
-            dialog_width = min(image.width + 50, 820)
-            dialog_height = min(image.height + 150, 700)
-            self.resize(dialog_width, dialog_height)
 
 
 class IconExtractorWindow(QMainWindow):
@@ -285,7 +233,6 @@ class IconExtractorWindow(QMainWindow):
         self.worker: Optional[ConversionWorker] = None
         self.found_files: List[Path] = []
         
-        # Hardcoded base cache path
         self.base_cache_path = Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon")
         
         self.settings = QSettings("ImpulsiveFPS", "EUIconExtractor")
@@ -303,22 +250,19 @@ class IconExtractorWindow(QMainWindow):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
         
-        # Header with icon
+        # Header
         header_layout = QHBoxLayout()
         header_layout.setSpacing(15)
         
-        # Icon label (will be set if icon exists)
         self.header_icon = QLabel()
         self.header_icon.setFixedSize(48, 48)
         self.header_icon.setStyleSheet("background: transparent;")
         header_layout.addWidget(self.header_icon)
         
-        # Title
         header = QLabel("Entropia Universe Icon Extractor")
         header.setStyleSheet("font-size: 22px; font-weight: bold; color: #4caf50;")
         header_layout.addWidget(header, 1)
         
-        # Theme toggle button
         self.theme_btn = QPushButton("☀️ Light")
         self.theme_btn.setMaximumWidth(80)
         self.theme_btn.setStyleSheet("font-size: 11px; padding: 5px;")
@@ -327,10 +271,9 @@ class IconExtractorWindow(QMainWindow):
         header_layout.addWidget(self.theme_btn)
         
         header_layout.addStretch()
-        
         layout.addLayout(header_layout)
         
-        # Description - two lines with clickable link
+        # Description
         desc_widget = QWidget()
         desc_layout = QVBoxLayout(desc_widget)
         desc_layout.setContentsMargins(5, 5, 5, 5)
@@ -342,9 +285,7 @@ class IconExtractorWindow(QMainWindow):
         
         desc_line2 = QLabel("You can submit these to ")
         desc_line2.setStyleSheet("color: #aaaaaa; font-size: 13px;")
-        desc_line2.setOpenExternalLinks(True)
         
-        # Clickable link - Entropia Nexus text links to entropianexus.com
         link_label = QLabel('<a href="https://entropianexus.com" style="color: #4caf50; text-decoration: none;">Entropia Nexus</a> to help complete the item database.')
         link_label.setStyleSheet("font-size: 13px; color: #aaaaaa;")
         link_label.setOpenExternalLinks(True)
@@ -372,7 +313,6 @@ class IconExtractorWindow(QMainWindow):
         cache_layout.setContentsMargins(12, 18, 12, 12)
         cache_layout.setSpacing(10)
         
-        # Base path (hardcoded) - show just the end part
         path_display = "...\\Entropia Universe\\public_users_data\\cache\\icon"
         self.cache_path_full = str(self.base_cache_path).replace("/", "\\")
         self.cache_label = QLabel(path_display)
@@ -383,7 +323,6 @@ class IconExtractorWindow(QMainWindow):
         self.cache_label.setToolTip(self.cache_path_full)
         cache_layout.addWidget(self.cache_label)
         
-        # Subfolder selector
         subfolder_layout = QHBoxLayout()
         subfolder_layout.setSpacing(8)
         
@@ -434,7 +373,7 @@ class IconExtractorWindow(QMainWindow):
         top_row_layout.addWidget(output_group, 1)
         layout.addWidget(top_row)
         
-        # Available Icons (full width below)
+        # Available Icons
         files_group = QGroupBox("📄 Available Icons")
         files_group.setStyleSheet("QGroupBox { font-size: 13px; font-weight: bold; }")
         files_layout = QVBoxLayout(files_group)
@@ -457,13 +396,12 @@ class IconExtractorWindow(QMainWindow):
         
         layout.addWidget(files_group, 1)
         
-        # Bottom buttons area
+        # Bottom buttons
         bottom_widget = QWidget()
         bottom_layout = QHBoxLayout(bottom_widget)
         bottom_layout.setContentsMargins(0, 0, 0, 0)
         bottom_layout.setSpacing(15)
         
-        # Left side: Select buttons
         select_layout = QHBoxLayout()
         select_layout.setSpacing(10)
         
@@ -482,12 +420,10 @@ class IconExtractorWindow(QMainWindow):
         bottom_layout.addLayout(select_layout)
         bottom_layout.addStretch()
         
-        # Right side: Main buttons stacked vertically
         right_buttons = QVBoxLayout()
         right_buttons.setSpacing(8)
         right_buttons.setAlignment(Qt.AlignmentFlag.AlignRight)
         
-        # Main action button - GREEN
         self.convert_btn = QPushButton("▶️ Start Extracting Icons")
         self.convert_btn.setFixedSize(200, 45)
         self.convert_btn.setStyleSheet("""
@@ -505,7 +441,6 @@ class IconExtractorWindow(QMainWindow):
         self.convert_btn.clicked.connect(self._start_conversion)
         right_buttons.addWidget(self.convert_btn)
         
-        # Open Output Folder button - same size
         open_folder_btn = QPushButton("📂 Open Output Folder")
         open_folder_btn.setFixedSize(200, 35)
         open_folder_btn.setStyleSheet("font-size: 11px; padding: 5px;")
@@ -528,7 +463,7 @@ class IconExtractorWindow(QMainWindow):
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.status_label)
         
-        # Important Information (moved to bottom)
+        # Important Information
         notice_group = QGroupBox("⚠️ Important Information")
         notice_group.setStyleSheet("""
             QGroupBox { 
@@ -562,27 +497,18 @@ class IconExtractorWindow(QMainWindow):
         notice_layout.addWidget(notice_text)
         layout.addWidget(notice_group)
         
-        # Footer with clickable links (no emojis)
+        # Footer
         footer_widget = QWidget()
         footer_layout = QVBoxLayout(footer_widget)
         footer_layout.setContentsMargins(10, 10, 10, 10)
         footer_layout.setSpacing(5)
         
-        # First line - developer info (no emojis)
-        footer_line1 = QLabel(f'Developed by {DEVELOPER} | Discord: {DISCORD} | <a href="https://github.com/ImpulsiveFPS/EU-Icon-Extractor" style="color: #888;">GitHub</a>')
+        footer_line1 = QLabel('<a href="https://github.com/ImpulsiveFPS/EU-Icon-Extractor" style="color: #888;">GitHub</a> | <a href="https://ko-fi.com/impulsivefps" style="color: #ff6b6b;">☕ Support me on Ko-fi</a>')
         footer_line1.setStyleSheet("color: #888; font-size: 11px;")
         footer_line1.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer_line1.setOpenExternalLinks(True)
         footer_layout.addWidget(footer_line1)
         
-        # Support me line
-        support_label = QLabel('<a href="https://ko-fi.com/impulsivefps" style="color: #ff6b6b;">☕ Support me on Ko-fi</a>')
-        support_label.setStyleSheet("color: #888; font-size: 11px;")
-        support_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        support_label.setOpenExternalLinks(True)
-        footer_layout.addWidget(support_label)
-        
-        # Second line - disclaimer with links (no emojis)
         disclaimer_widget = QWidget()
         disclaimer_layout = QHBoxLayout(disclaimer_widget)
         disclaimer_layout.setContentsMargins(0, 0, 0, 0)
@@ -590,7 +516,6 @@ class IconExtractorWindow(QMainWindow):
         
         label1 = QLabel("Entropia Universe Icon Extractor is a fan-made resource and is not affiliated with ")
         label1.setStyleSheet("color: #666; font-size: 10px;")
-        label1.setOpenExternalLinks(True)
         
         mindark_link = QLabel('<a href="https://www.mindark.com/" style="color: #888;">MindArk PE AB</a>. ')
         mindark_link.setStyleSheet("color: #666; font-size: 10px;")
@@ -618,40 +543,23 @@ class IconExtractorWindow(QMainWindow):
         item = self.files_list.item(index.row())
         if item:
             filepath = Path(item.data(Qt.ItemDataRole.UserRole))
-            self._preview_file(filepath)
-    
-    def _preview_file(self, filepath: Path):
-        """Open preview dialog for a TGA file."""
-        dialog = PreviewDialog(filepath, self.converter, self)
-        dialog.exec()
-    
-    def _open_url(self, url: str):
-        """Open URL in default browser."""
-        import webbrowser
-        webbrowser.open(url)
+            dialog = PreviewDialog(filepath, self.converter, self)
+            dialog.exec()
     
     def _load_icon(self):
         """Load and set the application icon."""
-        # Try to load icon from various locations
-        icon_paths = [
-            Path(__file__).parent / "assets" / "icon.ico",
-            Path(__file__).parent / "assets" / "icon.png",
-            Path(__file__).parent / "icon.ico",
-            Path(__file__).parent / "icon.png",
-        ]
+        icon_path = Path(__file__).parent / "icon.ico"
+        if not icon_path.exists():
+            icon_path = Path(__file__).parent / "assets" / "icon.ico"
         
-        for icon_path in icon_paths:
-            if icon_path.exists():
-                pixmap = QPixmap(str(icon_path))
-                if not pixmap.isNull():
-                    # Set window icon
-                    self.setWindowIcon(QIcon(pixmap))
-                    # Set header icon (scaled to 48x48)
-                    header_pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    self.header_icon.setPixmap(header_pixmap)
-                    return True
+        if icon_path.exists():
+            pixmap = QPixmap(str(icon_path))
+            if not pixmap.isNull():
+                self.setWindowIcon(QIcon(pixmap))
+                header_pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                self.header_icon.setPixmap(header_pixmap)
+                return True
         
-        # Hide header icon if no icon found
         self.header_icon.hide()
         return False
     
@@ -727,9 +635,6 @@ class IconExtractorWindow(QMainWindow):
             QTextEdit {
                 background-color: #252525;
                 border: 1px solid #404040;
-            }
-            QCheckBox {
-                font-size: 12px;
             }
             QLabel {
                 font-size: 12px;
@@ -807,10 +712,6 @@ class IconExtractorWindow(QMainWindow):
                 border: 1px solid #5d4e37;
                 color: #ffc107;
             }
-            QCheckBox {
-                font-size: 12px;
-                color: #333333;
-            }
             QLabel {
                 font-size: 12px;
                 color: #333333;
@@ -819,7 +720,6 @@ class IconExtractorWindow(QMainWindow):
     
     def _load_settings(self):
         """Load saved settings."""
-        # Output folder
         saved_output = self.settings.value("output_dir", str(self.converter.output_dir))
         self.converter.output_dir = Path(saved_output)
         self.output_label.setText("Documents\\Entropia Universe\\Icons\\")
@@ -837,11 +737,9 @@ class IconExtractorWindow(QMainWindow):
             self.status_label.setText("Cache folder not found - is Entropia Universe installed?")
             return
         
-        # Find all subfolders that contain TGA files
         subfolders = []
         for item in self.base_cache_path.iterdir():
             if item.is_dir():
-                # Check if this folder has TGA files
                 tga_count = len(list(item.glob("*.tga")))
                 if tga_count > 0:
                     subfolders.append((item.name, tga_count, item))
@@ -851,14 +749,11 @@ class IconExtractorWindow(QMainWindow):
             self.status_label.setText("No version folders found")
             return
         
-        # Sort by name (version)
         subfolders.sort(key=lambda x: x[0])
         
-        # Add to combo
         for name, count, path in subfolders:
             self.subfolder_combo.addItem(f"{name} ({count} icons)", str(path))
         
-        # Add "All folders" option at top
         total_icons = sum(s[1] for s in subfolders)
         self.subfolder_combo.insertItem(0, f"All Folders ({total_icons} icons)", "all")
         self.subfolder_combo.setCurrentIndex(0)
@@ -866,7 +761,6 @@ class IconExtractorWindow(QMainWindow):
         self.cache_label.setText(f"{self.base_cache_path}")
         self.status_label.setText(f"Found {len(subfolders)} version folders")
         
-        # Load files
         self._refresh_file_list()
     
     def _on_subfolder_changed(self):
@@ -883,8 +777,7 @@ class IconExtractorWindow(QMainWindow):
         
         if folder:
             self.converter.output_dir = Path(folder)
-            rel_path = "Documents/Entropia Universe/Icons/"
-            self.output_label.setText(rel_path)
+            self.output_label.setText("Documents\\Entropia Universe\\Icons\\")
             self._save_settings()
     
     def _refresh_file_list(self):
@@ -895,16 +788,12 @@ class IconExtractorWindow(QMainWindow):
         if not self.base_cache_path.exists():
             return
         
-        # Determine which folders to scan based on dropdown selection
         path_data = self.subfolder_combo.currentData()
         if path_data == "all" or path_data is None:
-            # Scan all subfolders
             folders_to_scan = [d for d in self.base_cache_path.iterdir() if d.is_dir()]
         else:
-            # Scan selected subfolder
             folders_to_scan = [Path(path_data)]
         
-        # Collect TGA files
         tga_files = []
         for folder in folders_to_scan:
             if folder.exists():
@@ -914,7 +803,6 @@ class IconExtractorWindow(QMainWindow):
         self.status_label.setText(f"Found {len(tga_files)} files")
         
         for tga_file in sorted(tga_files):
-            # Show folder prefix for clarity
             try:
                 rel_path = f"{tga_file.parent.name}/{tga_file.name}"
             except:
@@ -923,7 +811,6 @@ class IconExtractorWindow(QMainWindow):
             item = QListWidgetItem(rel_path)
             item.setData(Qt.ItemDataRole.UserRole, str(tga_file))
             
-            # Get info
             header = self.converter.read_tga_header(tga_file)
             if header:
                 item.setToolTip(f"Double-click to preview\n{header.width}x{header.height}, {header.pixel_depth}bpp")
@@ -937,7 +824,6 @@ class IconExtractorWindow(QMainWindow):
     
     def _start_conversion(self):
         """Start batch conversion."""
-        # Get selected files or all files
         selected_items = self.files_list.selectedItems()
         if selected_items:
             files_to_convert = [
@@ -951,17 +837,14 @@ class IconExtractorWindow(QMainWindow):
             QMessageBox.warning(self, "No Files", "No files selected for extraction.")
             return
         
-        # Save settings
         self._save_settings()
         
-        # Setup UI
         self.convert_btn.setEnabled(False)
         self.convert_btn.setText("Extracting...")
         self.progress_bar.setRange(0, len(files_to_convert))
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(True)
         
-        # Start worker
         self.worker = ConversionWorker(files_to_convert, self.converter)
         self.worker.progress.connect(self._on_progress)
         self.worker.file_done.connect(self._on_file_done)
@@ -974,7 +857,7 @@ class IconExtractorWindow(QMainWindow):
         self.progress_bar.setValue(self.progress_bar.value() + 1)
     
     def _on_file_done(self, filename: str, output_path: str):
-        logger.info(f"Extracted: {filename} -> {output_path}")
+        pass
     
     def _on_finished(self, success: int, total: int):
         self.convert_btn.setEnabled(True)
@@ -1000,9 +883,6 @@ class IconExtractorWindow(QMainWindow):
     
     def _open_output_folder(self):
         """Open output folder in file manager."""
-        import os
-        import subprocess
-        
         path = str(self.converter.output_dir)
         
         if os.name == 'nt':
@@ -1023,25 +903,19 @@ class IconExtractorWindow(QMainWindow):
 
 def set_app_icon(app: QApplication):
     """Set application icon for window and taskbar."""
-    # Try to load icon from various locations
-    icon_paths = [
-        Path(__file__).parent / "assets" / "icon.ico",
-        Path(__file__).parent / "assets" / "icon.png",
-        Path(__file__).parent / "icon.ico",
-        Path(__file__).parent / "icon.png",
-    ]
+    icon_path = Path(__file__).parent / "icon.ico"
+    if not icon_path.exists():
+        icon_path = Path(__file__).parent / "assets" / "icon.ico"
     
-    for icon_path in icon_paths:
-        if icon_path.exists():
-            app.setWindowIcon(QIcon(str(icon_path)))
-            return True
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+        return True
     return False
 
 
 def set_windows_taskbar_icon():
     """Set Windows taskbar icon properly."""
     if sys.platform == 'win32':
-        # Set the AppUserModelID to ensure taskbar shows our icon
         try:
             import ctypes
             myappid = 'impulsivefps.euiconextractor.1.0'
@@ -1052,18 +926,15 @@ def set_windows_taskbar_icon():
 
 def main():
     """Main entry point."""
-    # Set Windows taskbar icon before creating QApplication
     set_windows_taskbar_icon()
     
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     
-    # Set application info for proper Windows taskbar icon
     app.setApplicationName(APP_NAME)
-    app.setApplicationVersion(APP_VERSION)
+    app.setApplicationVersion("1.0.0")
     app.setOrganizationName("ImpulsiveFPS")
     
-    # Set app icon (for taskbar and window)
     set_app_icon(app)
     
     # Dark theme by default
@@ -1128,9 +999,6 @@ def main():
         QTextEdit {
             background-color: #252525;
             border: 1px solid #404040;
-        }
-        QCheckBox {
-            font-size: 12px;
         }
         QLabel {
             font-size: 12px;
