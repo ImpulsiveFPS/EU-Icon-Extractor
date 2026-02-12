@@ -102,25 +102,21 @@ def parse_library_folders_vdf(vdf_path: Path) -> List[Path]:
     return libraries
 
 
-def find_entropia_cache_path() -> Optional[Path]:
+def find_all_cache_paths() -> List[Path]:
     """
-    Find Entropia Universe cache folder.
-    Checks multiple locations based on platform.
+    Find all Entropia Universe cache folders.
+    Returns a list of paths (standard install, Steam, etc.)
     """
+    found_paths = []
+    
     # Check standard installation first (platform-specific)
     if sys.platform == 'win32':
-        standard_paths = [
-            Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon"),
-        ]
+        standard_path = Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon")
     else:
-        # Linux standard paths
-        standard_paths = [
-            Path.home() / ".local" / "share" / "Entropia Universe" / "public_users_data" / "cache" / "icon",
-        ]
+        standard_path = Path.home() / ".local" / "share" / "Entropia Universe" / "public_users_data" / "cache" / "icon"
     
-    for path in standard_paths:
-        if path.exists() and list(path.rglob("*.tga")):
-            return path
+    if standard_path.exists() and list(standard_path.rglob("*.tga")):
+        found_paths.append(("Standard Install", standard_path))
     
     # Check Steam installations
     steam_paths = get_steam_paths()
@@ -129,7 +125,7 @@ def find_entropia_cache_path() -> Optional[Path]:
         # Check default Steam library
         eu_path = steam_path / "steamapps" / "common" / "Entropia Universe" / "public_users_data" / "cache" / "icon"
         if eu_path.exists() and list(eu_path.rglob("*.tga")):
-            return eu_path
+            found_paths.append(("Steam", eu_path))
         
         # Check other Steam libraries
         library_folders = steam_path / "steamapps" / "libraryfolders.vdf"
@@ -138,9 +134,19 @@ def find_entropia_cache_path() -> Optional[Path]:
         for library in libraries:
             eu_path = library / "steamapps" / "common" / "Entropia Universe" / "public_users_data" / "cache" / "icon"
             if eu_path.exists() and list(eu_path.rglob("*.tga")):
-                return eu_path
+                # Check if we already have this path
+                if not any(str(p[1]) == str(eu_path) for p in found_paths):
+                    found_paths.append(("Steam", eu_path))
     
-    return None
+    return found_paths
+
+
+def find_entropia_cache_path() -> Optional[Path]:
+    """
+    Find first Entropia Universe cache folder (for backward compatibility).
+    """
+    paths = find_all_cache_paths()
+    return paths[0][1] if paths else None
 
 
 class TGAHeader:
@@ -338,8 +344,9 @@ class IconExtractorWindow(QMainWindow):
         self.worker: Optional[ConversionWorker] = None
         self.found_files: List[Path] = []
         
-        # Auto-detect cache path
-        self.base_cache_path = find_entropia_cache_path()
+        # Find all cache sources (standard, steam, etc.)
+        self.cache_sources = find_all_cache_paths()  # List of (name, path) tuples
+        self.selected_source_index = 0  # 0 = All Sources, 1+ = specific source
         self.cache_path_manually_set = False
         
         self.settings = QSettings("ImpulsiveFPS", "EUIconExtractor")
@@ -348,8 +355,9 @@ class IconExtractorWindow(QMainWindow):
         self._load_icon()
         self._load_settings()
         
-        # Detect subfolders if path was found
-        if self.base_cache_path:
+        # Detect subfolders if any sources were found
+        if self.cache_sources:
+            self._populate_source_combo()
             self._detect_subfolders()
         else:
             self._show_cache_not_found()
@@ -361,9 +369,39 @@ class IconExtractorWindow(QMainWindow):
             "font-family: Consolas; font-size: 10px; color: #f44336; "
             "padding: 6px 8px; background: #3e2723; border-radius: 3px;"
         )
+        self.source_combo.clear()
+        self.source_combo.addItem("❌ No sources found")
+        self.source_combo.setEnabled(False)
         self.status_label.setText("Click 'Browse...' to select the cache folder manually")
         self.files_count_label.setText("No cache folder selected")
         self.convert_btn.setEnabled(False)
+    
+    def _populate_source_combo(self):
+        """Populate the source selection dropdown with found cache sources."""
+        self.source_combo.clear()
+        self.source_combo.setEnabled(True)
+        
+        # Count total icons across all sources
+        total_icons = 0
+        for name, path in self.cache_sources:
+            total_icons += len(list(path.rglob("*.tga")))
+        
+        # Add "All Sources" option
+        self.source_combo.addItem(f"🌐 All Sources ({total_icons} icons)", "all")
+        
+        # Add individual sources
+        for name, path in self.cache_sources:
+            icon_count = len(list(path.rglob("*.tga")))
+            display_name = f"📁 {name}: {path.parent.parent.parent.name if path.parent.parent.parent != path else 'Entropia Universe'} ({icon_count} icons)"
+            self.source_combo.addItem(display_name, str(path))
+        
+        # Connect source change handler
+        self.source_combo.currentIndexChanged.connect(self._on_source_changed)
+    
+    def _on_source_changed(self):
+        """Handle source selection change."""
+        self.selected_source_index = self.source_combo.currentIndex()
+        self._detect_subfolders()
     
     def _browse_cache_folder(self):
         """Browse for cache folder manually."""
@@ -380,13 +418,12 @@ class IconExtractorWindow(QMainWindow):
             tga_files = list(selected_path.rglob("*.tga"))
             
             if tga_files:
-                self.base_cache_path = selected_path
+                # Add as a manual source
+                self.cache_sources.append(("Manual", selected_path))
                 self.cache_path_manually_set = True
-                self.cache_label.setText(str(selected_path))
-                self.cache_label.setStyleSheet(
-                    "font-family: Consolas; font-size: 10px; color: #aaa; "
-                    "padding: 6px 8px; background: #252525; border-radius: 3px;"
-                )
+                self._populate_source_combo()
+                # Select the newly added source (last index)
+                self.source_combo.setCurrentIndex(len(self.cache_sources))
                 self.status_label.setText(f"Found {len(tga_files)} TGA files")
                 self._detect_subfolders()
             else:
@@ -468,15 +505,23 @@ class IconExtractorWindow(QMainWindow):
         cache_layout.setContentsMargins(12, 18, 12, 12)
         cache_layout.setSpacing(10)
         
-        # Display detected or manual path
-        if self.base_cache_path:
-            path_display = str(self.base_cache_path).replace("/", "\\")
-            self.cache_path_full = path_display
-        else:
-            path_display = "Not found - click Browse to select"
-            self.cache_path_full = ""
+        # Source selection dropdown
+        source_layout = QHBoxLayout()
+        source_layout.setSpacing(8)
         
-        self.cache_label = QLabel(path_display)
+        source_label = QLabel("🌐 Source:")
+        source_label.setStyleSheet("font-size: 12px;")
+        source_layout.addWidget(source_label)
+        
+        self.source_combo = QComboBox()
+        self.source_combo.setMinimumWidth(250)
+        self.source_combo.setStyleSheet("font-size: 12px; padding: 3px;")
+        source_layout.addWidget(self.source_combo, 1)
+        
+        cache_layout.addLayout(source_layout)
+        
+        # Path display label
+        self.cache_label = QLabel("Scanning for cache folders...")
         self.cache_label.setStyleSheet(
             "font-family: Consolas; font-size: 10px; color: #aaa; "
             "padding: 6px 8px; background: #252525; border-radius: 3px;"
@@ -484,30 +529,30 @@ class IconExtractorWindow(QMainWindow):
         self.cache_label.setWordWrap(True)
         cache_layout.addWidget(self.cache_label)
         
-        # Subfolder selector and browse button
-        subfolder_layout = QHBoxLayout()
-        subfolder_layout.setSpacing(8)
+        # Version selector
+        version_layout = QHBoxLayout()
+        version_layout.setSpacing(8)
         
-        subfolder_label = QLabel("📁 Version:")
-        subfolder_label.setStyleSheet("font-size: 12px;")
-        subfolder_layout.addWidget(subfolder_label)
+        version_label = QLabel("📁 Version:")
+        version_label.setStyleSheet("font-size: 12px;")
+        version_layout.addWidget(version_label)
         
-        self.subfolder_combo = QComboBox()
-        self.subfolder_combo.setMinimumWidth(180)
-        self.subfolder_combo.setStyleSheet("font-size: 12px; padding: 3px;")
-        self.subfolder_combo.currentIndexChanged.connect(self._on_subfolder_changed)
-        subfolder_layout.addWidget(self.subfolder_combo, 1)
+        self.version_combo = QComboBox()
+        self.version_combo.setMinimumWidth(180)
+        self.version_combo.setStyleSheet("font-size: 12px; padding: 3px;")
+        self.version_combo.currentIndexChanged.connect(self._on_version_changed)
+        version_layout.addWidget(self.version_combo, 1)
         
         refresh_btn = QPushButton("🔄 Refresh")
         refresh_btn.setMaximumWidth(80)
         refresh_btn.setStyleSheet("font-size: 11px; padding: 4px;")
         refresh_btn.clicked.connect(self._detect_subfolders)
-        subfolder_layout.addWidget(refresh_btn)
+        version_layout.addWidget(refresh_btn)
         
-        cache_layout.addLayout(subfolder_layout)
+        cache_layout.addLayout(version_layout)
         
         # Browse button for manual selection
-        browse_btn = QPushButton("📂 Browse...")
+        browse_btn = QPushButton("📂 Browse for cache folder...")
         browse_btn.setStyleSheet("font-size: 11px; padding: 5px;")
         browse_btn.clicked.connect(self._browse_cache_folder)
         cache_layout.addWidget(browse_btn)
@@ -905,54 +950,91 @@ class IconExtractorWindow(QMainWindow):
         self.settings.setValue("output_dir", str(self.converter.output_dir))
     
     def _detect_subfolders(self):
-        """Detect version subfolders in the cache directory."""
-        self.subfolder_combo.clear()
+        """Detect version subfolders in the selected cache source(s)."""
+        self.version_combo.clear()
         
-        if not self.base_cache_path or not self.base_cache_path.exists():
-            self.cache_label.setText("❌ Cache folder not found")
+        # Get the selected source path(s)
+        source_index = self.source_combo.currentIndex()
+        source_data = self.source_combo.currentData()
+        
+        if not self.cache_sources or source_data is None:
+            self.cache_label.setText("❌ No cache source selected")
             self.cache_label.setStyleSheet(
                 "font-family: Consolas; font-size: 10px; color: #f44336; "
                 "padding: 6px 8px; background: #3e2723; border-radius: 3px;"
             )
+            self.version_combo.addItem("No sources available")
             self.status_label.setText("Click 'Browse...' to select the cache folder manually")
             self.files_count_label.setText("No cache folder selected")
             self.convert_btn.setEnabled(False)
             return
         
+        # Determine which paths to scan
+        if source_index == 0 or source_data == "all":
+            # Scan all sources
+            paths_to_scan = [path for _, path in self.cache_sources]
+        else:
+            # Scan specific source
+            paths_to_scan = [Path(source_data)]
+        
+        # Find all version subfolders across selected sources
         subfolders = []
-        for item in self.base_cache_path.iterdir():
-            if item.is_dir():
-                tga_count = len(list(item.glob("*.tga")))
-                if tga_count > 0:
-                    subfolders.append((item.name, tga_count, item))
+        for source_path in paths_to_scan:
+            if source_path.exists():
+                for item in source_path.iterdir():
+                    if item.is_dir():
+                        tga_count = len(list(item.glob("*.tga")))
+                        if tga_count > 0:
+                            # Include source name in display
+                            source_name = None
+                            for name, path in self.cache_sources:
+                                if path == source_path:
+                                    source_name = name
+                                    break
+                            subfolders.append((item.name, tga_count, item, source_name))
         
         if not subfolders:
-            self.cache_label.setText(f"No subfolders with icons in {self.base_cache_path}")
-            self.status_label.setText("No version folders found")
+            self.cache_label.setText("No version folders found in selected source(s)")
+            self.status_label.setText("No TGA files found")
+            self.version_combo.addItem("No versions found")
+            self.convert_btn.setEnabled(False)
             return
         
         subfolders.sort(key=lambda x: x[0])
         
-        for name, count, path in subfolders:
-            self.subfolder_combo.addItem(f"{name} ({count} icons)", str(path))
+        for name, count, path, source_name in subfolders:
+            display = f"{name} ({count} icons)"
+            if source_name and len(self.cache_sources) > 1:
+                display += f" [{source_name}]"
+            self.version_combo.addItem(display, str(path))
         
         total_icons = sum(s[1] for s in subfolders)
-        self.subfolder_combo.insertItem(0, f"All Folders ({total_icons} icons)", "all")
-        self.subfolder_combo.setCurrentIndex(0)
+        self.version_combo.insertItem(0, f"📁 All Folders ({total_icons} icons)", "all")
+        self.version_combo.setCurrentIndex(0)
         
-        # Update display
-        display_path = str(self.base_cache_path).replace("/", "\\")
+        # Update cache label to show active source(s)
+        if source_index == 0 or source_data == "all":
+            if len(self.cache_sources) == 1:
+                display_path = str(self.cache_sources[0][1])
+            else:
+                display_path = f"{len(self.cache_sources)} sources (All)"
+        else:
+            display_path = str(source_data)
+        
+        if sys.platform == 'win32':
+            display_path = display_path.replace("/", "\\")
+        
         self.cache_label.setText(display_path)
         self.cache_label.setStyleSheet(
             "font-family: Consolas; font-size: 10px; color: #aaa; "
             "padding: 6px 8px; background: #252525; border-radius: 3px;"
         )
-        self.status_label.setText(f"Found {len(subfolders)} version folders")
+        self.status_label.setText(f"Found {len(subfolders)} version folders with {total_icons} icons")
         
         self._refresh_file_list()
     
-    def _on_subfolder_changed(self):
-        """Handle subfolder selection change."""
+    def _on_version_changed(self):
+        """Handle version selection change."""
         self._refresh_file_list()
     
     def _browse_output(self):
@@ -965,7 +1047,10 @@ class IconExtractorWindow(QMainWindow):
         
         if folder:
             self.converter.output_dir = Path(folder)
-            self.output_label.setText("Documents\\Entropia Universe\\Icons\\")
+            if sys.platform == 'win32':
+                self.output_label.setText("Documents\\Entropia Universe\\Icons\\")
+            else:
+                self.output_label.setText("~/Documents/Entropia Universe/Icons/")
             self._save_settings()
     
     def _refresh_file_list(self):
@@ -973,14 +1058,31 @@ class IconExtractorWindow(QMainWindow):
         self.files_list.clear()
         self.found_files = []
         
-        if not self.base_cache_path or not self.base_cache_path.exists():
+        # Get the selected source
+        source_index = self.source_combo.currentIndex()
+        source_data = self.source_combo.currentData()
+        
+        if not self.cache_sources or source_data is None:
             return
         
-        path_data = self.subfolder_combo.currentData()
-        if path_data == "all" or path_data is None:
-            folders_to_scan = [d for d in self.base_cache_path.iterdir() if d.is_dir()]
+        # Determine which source paths to scan
+        if source_index == 0 or source_data == "all":
+            source_paths = [path for _, path in self.cache_sources]
         else:
-            folders_to_scan = [Path(path_data)]
+            source_paths = [Path(source_data)]
+        
+        # Get the selected version
+        version_data = self.version_combo.currentData()
+        
+        if version_data == "all" or version_data is None:
+            # Scan all version folders in selected source(s)
+            folders_to_scan = []
+            for source_path in source_paths:
+                if source_path.exists():
+                    folders_to_scan.extend([d for d in source_path.iterdir() if d.is_dir()])
+        else:
+            # Scan specific version folder
+            folders_to_scan = [Path(version_data)]
         
         tga_files = []
         for folder in folders_to_scan:
@@ -992,7 +1094,17 @@ class IconExtractorWindow(QMainWindow):
         
         for tga_file in sorted(tga_files):
             try:
-                rel_path = f"{tga_file.parent.name}/{tga_file.name}"
+                # Show source in path if multiple sources
+                source_name = None
+                for name, path in self.cache_sources:
+                    if str(tga_file).startswith(str(path)):
+                        source_name = name
+                        break
+                
+                if len(self.cache_sources) > 1 and source_name:
+                    rel_path = f"[{source_name}] {tga_file.parent.name}/{tga_file.name}"
+                else:
+                    rel_path = f"{tga_file.parent.name}/{tga_file.name}"
             except:
                 rel_path = tga_file.name
             
