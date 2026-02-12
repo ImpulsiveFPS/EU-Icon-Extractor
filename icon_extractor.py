@@ -678,6 +678,13 @@ class IconExtractorWindow(QMainWindow):
         footer_line1.setOpenExternalLinks(True)
         footer_layout.addWidget(footer_line1)
         
+        # Star on GitHub line
+        star_label = QLabel('If you like this app, please <a href="https://github.com/ImpulsiveFPS/EU-Icon-Extractor" style="color: #ffd700;">give it a star on GitHub</a>!')
+        star_label.setStyleSheet("color: #888; font-size: 11px;")
+        star_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        star_label.setOpenExternalLinks(True)
+        footer_layout.addWidget(star_label)
+        
         disclaimer_widget = QWidget()
         disclaimer_layout = QHBoxLayout(disclaimer_widget)
         disclaimer_layout.setContentsMargins(0, 0, 0, 0)
