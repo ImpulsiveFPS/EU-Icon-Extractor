@@ -13,10 +13,9 @@ GitHub: https://github.com/ImpulsiveFPS/EU-Icon-Extractor
 import sys
 import os
 import subprocess
-import webbrowser
 import re
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 # Platform-specific imports
 if sys.platform == 'win32':
@@ -102,21 +101,34 @@ def parse_library_folders_vdf(vdf_path: Path) -> List[Path]:
     return libraries
 
 
-def find_all_cache_paths() -> List[Path]:
+def find_all_cache_paths() -> List[Tuple[str, Path]]:
     """
     Find all Entropia Universe cache folders.
-    Returns a list of paths (standard install, Steam, etc.)
+    Returns a list of (name, path) tuples.
     """
     found_paths = []
     
-    # Check standard installation first (platform-specific)
+    # Check Windows Registry for MindArk installation (Standard Install)
     if sys.platform == 'win32':
-        standard_path = Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon")
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\MindArk\Entropia Universe") as key:
+                parent_folder, _ = winreg.QueryValueEx(key, "PublicUsersDataParentFolder")
+                standard_path = Path(parent_folder) / "public_users_data" / "cache" / "icon"
+                if standard_path.exists() and list(standard_path.rglob("*.tga")):
+                    found_paths.append(("Standard Install", standard_path))
+        except Exception:
+            pass
+        
+        # Fallback to hardcoded path if registry fails
+        if not found_paths:
+            fallback_path = Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon")
+            if fallback_path.exists() and list(fallback_path.rglob("*.tga")):
+                found_paths.append(("Standard Install", fallback_path))
     else:
+        # Linux standard paths (if non-Steam install exists)
         standard_path = Path.home() / ".local" / "share" / "Entropia Universe" / "public_users_data" / "cache" / "icon"
-    
-    if standard_path.exists() and list(standard_path.rglob("*.tga")):
-        found_paths.append(("Standard Install", standard_path))
+        if standard_path.exists() and list(standard_path.rglob("*.tga")):
+            found_paths.append(("Standard Install", standard_path))
     
     # Check Steam installations
     steam_paths = get_steam_paths()

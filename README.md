@@ -1,6 +1,6 @@
 # Entropia Universe Icon Extractor
 
-A standalone tool for extracting item icons from Entropia Universe game cache.
+A standalone cross-platform tool for extracting item icons from Entropia Universe game cache.
 
 <img src="icon.ico" width="64" height="64" alt="EU Icon Extractor">
 
@@ -8,7 +8,10 @@ A standalone tool for extracting item icons from Entropia Universe game cache.
 
 **[Download Latest Release](https://github.com/ImpulsiveFPS/EU-Icon-Extractor/releases/latest)**
 
-Download `EU-Icon-Extractor.exe` and run it - no installation needed!
+- **Windows:** `EU-Icon-Extractor-Windows.exe`
+- **Linux:** `EU-Icon-Extractor-Linux`
+
+No installation needed - just download and run!
 
 ## Description
 
@@ -16,10 +19,34 @@ Extract item icons from Entropia Universe cache and convert them to PNG format.
 
 **Important:** Items must be seen/rendered in-game before they appear in the cache! If an icon is missing, view the item in your inventory or the auction first.
 
+## Features
+
+### Cross-Platform Support
+- **Windows** - Auto-detects from Registry and standard paths
+- **Linux** - Auto-detects Steam installations
+
+### Multiple Cache Sources
+- **Standard Install** - Detected from Windows Registry (`PublicUsersDataParentFolder`)
+- **Steam** - Auto-detects from Steam library folders
+- **Manual Browse** - Select custom cache folder
+- **Extract from All** - Combine icons from multiple sources
+
+### Extraction Options
+- **Version selector** - Choose which game version to extract from
+- **"All Folders" option** - Extract from all versions at once
+- **320x320 PNG output** - Icons centered on transparent canvas
+- **Multiple upscale methods** - HQ4x, Lanczos, or Nearest Neighbor
+
+### User Interface
+- **Source selection** - Choose between Standard, Steam, or All sources
+- **Double-click preview** - Preview TGA files before extraction
+- **Light/Dark theme** - Toggle between themes
+- **Custom output folder** - Choose where to save extracted icons
+
 ## Usage
 
 ### Option 1: Download Executable (Recommended)
-1. Download `EU-Icon-Extractor.exe` from [Releases](https://github.com/ImpulsiveFPS/EU-Icon-Extractor/releases/latest)
+1. Download the appropriate executable for your OS from [Releases](https://github.com/ImpulsiveFPS/EU-Icon-Extractor/releases/latest)
 2. Double-click to run - no installation needed!
 
 ### Option 2: Run from Source
@@ -32,21 +59,37 @@ python icon_extractor.py
 - PyQt6: `pip install PyQt6`
 - Pillow: `pip install Pillow`
 
-## Features
+## Cache Locations
 
-- **Auto-detects** game cache from `C:\ProgramData\Entropia Universe\public_users_data\cache\icon`
-- **Version selector** - Choose which game version to extract from
-- **"All Folders" option** - Extract from all versions at once
-- **Double-click preview** - Preview TGA files before extraction
-- **320x320 PNG output** - Icons centered on transparent canvas
-- **Light/Dark theme** - Toggle between themes
-- **Custom output folder** - Choose where to save extracted icons
+### Windows
+The tool automatically detects the cache location from the Windows Registry:
+```
+HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\MindArk\Entropia Universe
+PublicUsersDataParentFolder = C:\ProgramData\Entropia Universe
+```
+
+Full cache path: `{PublicUsersDataParentFolder}\public_users_data\cache\icon\{VERSION}`
+
+### Linux (Steam)
+The tool checks these Steam installation paths:
+- `~/.steam/steam/`
+- `~/.local/share/Steam/`
+- `~/.steam/root/`
+
+Full cache path: `{Steam}/steamapps/common/Entropia Universe/public_users_data/cache/icon/{VERSION}`
 
 ## Output
 
 Icons are saved to your Documents folder:
+
+**Windows:**
 ```
 Documents\Entropia Universe\Icons\
+```
+
+**Linux:**
+```
+~/Documents/Entropia Universe/Icons/
 ```
 
 (Same location where `chat.log` is normally stored)
@@ -56,6 +99,7 @@ Documents\Entropia Universe\Icons\
 - **Developer:** ImpulsiveFPS
 - **Discord:** impulsivefps
 - **GitHub:** https://github.com/ImpulsiveFPS/EU-Icon-Extractor
+- **Report Bug:** https://github.com/ImpulsiveFPS/EU-Icon-Extractor/issues
 - **Support Me:** https://ko-fi.com/impulsivefps
 
 ## Disclaimer
@@ -64,8 +108,7 @@ Entropia Universe Icon Extractor is a fan-made resource and is not affiliated wi
 
 ## Building from Source
 
-If you want to build the executable yourself:
-
+### Windows
 ```bash
 # Install dependencies
 pip install pyinstaller
@@ -75,7 +118,20 @@ pip install -r requirements.txt
 pyinstaller icon_extractor.spec --clean
 ```
 
-The executable will be in `dist/EU-Icon-Extractor.exe`
+### Linux
+```bash
+# Install system dependencies (Ubuntu/Debian)
+sudo apt-get install libgl1-mesa-glx libglib2.0-0 libxkbcommon-x11-0
+
+# Install Python dependencies
+pip install pyinstaller
+pip install -r requirements.txt
+
+# Build executable
+pyinstaller icon_extractor.spec --clean
+```
+
+The executable will be in `dist/`
 
 ## License
 
