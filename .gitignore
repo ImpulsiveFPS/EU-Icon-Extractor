@@ -1,3 +1,58 @@
+# Entropia Universe Icon Extractor - Git Ignore
+
+# Build artifacts
+dist/
+build/
+*.exe
+*.pkg
+*.app
+
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+dist/
+build/
+
+# PyInstaller
+# Keep the spec file for CI/CD builds
+!icon_extractor.spec
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Game cache (if accidentally committed)
+public_users_data/
+*.tga
+
+# Large binary files
+*.zip
+*.7z
+*.tar.gz
+*.rar
+
+# Don't commit built executables
+EU-Icon-Extractor
+EU-Icon-Extractor.exe
