@@ -10,6 +10,9 @@ Discord: impulsivefps
 GitHub: https://github.com/ImpulsiveFPS/EU-Icon-Extractor
 """
 
+# Application version
+__version__ = "1.0.1"
+
 import sys
 import os
 import subprocess
@@ -42,7 +45,7 @@ except ImportError:
 
 
 # Application metadata
-APP_NAME = "Entropia Universe Icon Extractor"
+APP_NAME = f"Entropia Universe Icon Extractor v{__version__}"
 
 
 def get_steam_paths() -> List[Path]:
