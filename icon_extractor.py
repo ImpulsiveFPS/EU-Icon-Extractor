@@ -16,6 +16,7 @@ import subprocess
 import webbrowser
 from pathlib import Path
 from typing import Optional, List
+import winreg
 
 try:
     from PyQt6.QtWidgets import (
@@ -39,6 +40,85 @@ except ImportError:
 
 # Application metadata
 APP_NAME = "Entropia Universe Icon Extractor"
+
+
+def find_steam_installation() -> Optional[Path]:
+    """Find Steam installation directory from Windows Registry."""
+    try:
+        # Try 64-bit registry
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam") as key:
+            steam_path, _ = winreg.QueryValueEx(key, "InstallPath")
+            return Path(steam_path)
+    except Exception:
+        pass
+    
+    try:
+        # Try 32-bit registry
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Valve\Steam") as key:
+            steam_path, _ = winreg.QueryValueEx(key, "InstallPath")
+            return Path(steam_path)
+    except Exception:
+        pass
+    
+    return None
+
+
+def parse_library_folders_vdf(vdf_path: Path) -> List[Path]:
+    """Parse Steam libraryfolders.vdf to find all library locations."""
+    libraries = []
+    
+    if not vdf_path.exists():
+        return libraries
+    
+    try:
+        with open(vdf_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Find all "path" entries in the vdf file
+        import re
+        paths = re.findall(r'"path"\s+"([^"]+)"', content)
+        
+        for path in paths:
+            # Replace escaped backslashes
+            path = path.replace('\\\\', '\\')
+            libraries.append(Path(path))
+    except Exception:
+        pass
+    
+    return libraries
+
+
+def find_entropia_cache_path() -> Optional[Path]:
+    """
+    Find Entropia Universe cache folder.
+    Checks multiple locations:
+    1. Standard installation (ProgramData)
+    2. Steam installation
+    3. Other Steam libraries
+    """
+    # Check standard installation first
+    standard_path = Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon")
+    if standard_path.exists() and list(standard_path.rglob("*.tga")):
+        return standard_path
+    
+    # Check Steam installation
+    steam_path = find_steam_installation()
+    if steam_path:
+        # Check default Steam library
+        eu_path = steam_path / "steamapps" / "common" / "Entropia Universe" / "public_users_data" / "cache" / "icon"
+        if eu_path.exists() and list(eu_path.rglob("*.tga")):
+            return eu_path
+        
+        # Check other Steam libraries
+        library_folders = steam_path / "steamapps" / "libraryfolders.vdf"
+        libraries = parse_library_folders_vdf(library_folders)
+        
+        for library in libraries:
+            eu_path = library / "steamapps" / "common" / "Entropia Universe" / "public_users_data" / "cache" / "icon"
+            if eu_path.exists() and list(eu_path.rglob("*.tga")):
+                return eu_path
+    
+    return None
 
 
 class TGAHeader:
@@ -236,14 +316,64 @@ class IconExtractorWindow(QMainWindow):
         self.worker: Optional[ConversionWorker] = None
         self.found_files: List[Path] = []
         
-        self.base_cache_path = Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon")
+        # Auto-detect cache path
+        self.base_cache_path = find_entropia_cache_path()
+        self.cache_path_manually_set = False
         
         self.settings = QSettings("ImpulsiveFPS", "EUIconExtractor")
         
         self._setup_ui()
         self._load_icon()
         self._load_settings()
-        self._detect_subfolders()
+        
+        # Detect subfolders if path was found
+        if self.base_cache_path:
+            self._detect_subfolders()
+        else:
+            self._show_cache_not_found()
+    
+    def _show_cache_not_found(self):
+        """Show message when cache folder is not found."""
+        self.cache_label.setText("❌ Cache folder not found")
+        self.cache_label.setStyleSheet(
+            "font-family: Consolas; font-size: 10px; color: #f44336; "
+            "padding: 6px 8px; background: #3e2723; border-radius: 3px;"
+        )
+        self.status_label.setText("Click 'Browse...' to select the cache folder manually")
+        self.files_count_label.setText("No cache folder selected")
+        self.convert_btn.setEnabled(False)
+    
+    def _browse_cache_folder(self):
+        """Browse for cache folder manually."""
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Select Entropia Universe Cache Folder",
+            str(Path.home()),
+            QFileDialog.Option.ShowDirsOnly
+        )
+        
+        if folder:
+            selected_path = Path(folder)
+            # Check if this folder or any subfolder contains TGA files
+            tga_files = list(selected_path.rglob("*.tga"))
+            
+            if tga_files:
+                self.base_cache_path = selected_path
+                self.cache_path_manually_set = True
+                self.cache_label.setText(str(selected_path))
+                self.cache_label.setStyleSheet(
+                    "font-family: Consolas; font-size: 10px; color: #aaa; "
+                    "padding: 6px 8px; background: #252525; border-radius: 3px;"
+                )
+                self.status_label.setText(f"Found {len(tga_files)} TGA files")
+                self._detect_subfolders()
+            else:
+                QMessageBox.warning(
+                    self,
+                    "No TGA Files Found",
+                    f"The selected folder does not contain any .tga files.\n\n"
+                    f"Please select the 'cache\\icon' folder from Entropia Universe."
+                )
     
     def _setup_ui(self):
         """Setup the UI."""
@@ -316,16 +446,23 @@ class IconExtractorWindow(QMainWindow):
         cache_layout.setContentsMargins(12, 18, 12, 12)
         cache_layout.setSpacing(10)
         
-        path_display = "...\\Entropia Universe\\public_users_data\\cache\\icon"
-        self.cache_path_full = str(self.base_cache_path).replace("/", "\\")
+        # Display detected or manual path
+        if self.base_cache_path:
+            path_display = str(self.base_cache_path).replace("/", "\\")
+            self.cache_path_full = path_display
+        else:
+            path_display = "Not found - click Browse to select"
+            self.cache_path_full = ""
+        
         self.cache_label = QLabel(path_display)
         self.cache_label.setStyleSheet(
             "font-family: Consolas; font-size: 10px; color: #aaa; "
             "padding: 6px 8px; background: #252525; border-radius: 3px;"
         )
-        self.cache_label.setToolTip(self.cache_path_full)
+        self.cache_label.setWordWrap(True)
         cache_layout.addWidget(self.cache_label)
         
+        # Subfolder selector and browse button
         subfolder_layout = QHBoxLayout()
         subfolder_layout.setSpacing(8)
         
@@ -346,6 +483,13 @@ class IconExtractorWindow(QMainWindow):
         subfolder_layout.addWidget(refresh_btn)
         
         cache_layout.addLayout(subfolder_layout)
+        
+        # Browse button for manual selection
+        browse_btn = QPushButton("📂 Browse...")
+        browse_btn.setStyleSheet("font-size: 11px; padding: 5px;")
+        browse_btn.clicked.connect(self._browse_cache_folder)
+        cache_layout.addWidget(browse_btn)
+        
         top_row_layout.addWidget(cache_group, 1)
         
         # Output folder
@@ -735,9 +879,15 @@ class IconExtractorWindow(QMainWindow):
         """Detect version subfolders in the cache directory."""
         self.subfolder_combo.clear()
         
-        if not self.base_cache_path.exists():
-            self.cache_label.setText(f"Not found: {self.base_cache_path}")
-            self.status_label.setText("Cache folder not found - is Entropia Universe installed?")
+        if not self.base_cache_path or not self.base_cache_path.exists():
+            self.cache_label.setText("❌ Cache folder not found")
+            self.cache_label.setStyleSheet(
+                "font-family: Consolas; font-size: 10px; color: #f44336; "
+                "padding: 6px 8px; background: #3e2723; border-radius: 3px;"
+            )
+            self.status_label.setText("Click 'Browse...' to select the cache folder manually")
+            self.files_count_label.setText("No cache folder selected")
+            self.convert_btn.setEnabled(False)
             return
         
         subfolders = []
@@ -761,7 +911,13 @@ class IconExtractorWindow(QMainWindow):
         self.subfolder_combo.insertItem(0, f"All Folders ({total_icons} icons)", "all")
         self.subfolder_combo.setCurrentIndex(0)
         
-        self.cache_label.setText(f"{self.base_cache_path}")
+        # Update display
+        display_path = str(self.base_cache_path).replace("/", "\\")
+        self.cache_label.setText(display_path)
+        self.cache_label.setStyleSheet(
+            "font-family: Consolas; font-size: 10px; color: #aaa; "
+            "padding: 6px 8px; background: #252525; border-radius: 3px;"
+        )
         self.status_label.setText(f"Found {len(subfolders)} version folders")
         
         self._refresh_file_list()
@@ -788,7 +944,7 @@ class IconExtractorWindow(QMainWindow):
         self.files_list.clear()
         self.found_files = []
         
-        if not self.base_cache_path.exists():
+        if not self.base_cache_path or not self.base_cache_path.exists():
             return
         
         path_data = self.subfolder_combo.currentData()
