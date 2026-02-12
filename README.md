@@ -4,6 +4,10 @@ A standalone cross-platform tool for extracting item icons from Entropia Univers
 
 <img src="icon.ico" width="64" height="64" alt="EU Icon Extractor">
 
+## Version
+
+**Current Version:** 1.0.1
+
 ## Download
 
 **[Download Latest Release](https://github.com/ImpulsiveFPS/EU-Icon-Extractor/releases/latest)**
