@@ -14,9 +14,13 @@ import sys
 import os
 import subprocess
 import webbrowser
+import re
 from pathlib import Path
 from typing import Optional, List
-import winreg
+
+# Platform-specific imports
+if sys.platform == 'win32':
+    import winreg
 
 try:
     from PyQt6.QtWidgets import (
@@ -42,25 +46,36 @@ except ImportError:
 APP_NAME = "Entropia Universe Icon Extractor"
 
 
-def find_steam_installation() -> Optional[Path]:
-    """Find Steam installation directory from Windows Registry."""
-    try:
-        # Try 64-bit registry
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam") as key:
-            steam_path, _ = winreg.QueryValueEx(key, "InstallPath")
-            return Path(steam_path)
-    except Exception:
-        pass
+def get_steam_paths() -> List[Path]:
+    """Get all possible Steam installation paths for the current platform."""
+    paths = []
     
-    try:
-        # Try 32-bit registry
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Valve\Steam") as key:
-            steam_path, _ = winreg.QueryValueEx(key, "InstallPath")
-            return Path(steam_path)
-    except Exception:
-        pass
+    if sys.platform == 'win32':
+        # Windows: Check registry
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam") as key:
+                steam_path, _ = winreg.QueryValueEx(key, "InstallPath")
+                paths.append(Path(steam_path))
+        except Exception:
+            pass
+        
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Valve\Steam") as key:
+                steam_path, _ = winreg.QueryValueEx(key, "InstallPath")
+                paths.append(Path(steam_path))
+        except Exception:
+            pass
+    else:
+        # Linux/macOS common Steam paths
+        home = Path.home()
+        linux_paths = [
+            home / ".steam" / "steam",
+            home / ".local" / "share" / "Steam",
+            home / ".steam" / "root",
+        ]
+        paths.extend([p for p in linux_paths if p.exists()])
     
-    return None
+    return paths
 
 
 def parse_library_folders_vdf(vdf_path: Path) -> List[Path]:
@@ -75,11 +90,10 @@ def parse_library_folders_vdf(vdf_path: Path) -> List[Path]:
             content = f.read()
         
         # Find all "path" entries in the vdf file
-        import re
         paths = re.findall(r'"path"\s+"([^"]+)"', content)
         
         for path in paths:
-            # Replace escaped backslashes
+            # Replace escaped backslashes (Windows format in VDF)
             path = path.replace('\\\\', '\\')
             libraries.append(Path(path))
     except Exception:
@@ -91,19 +105,27 @@ def parse_library_folders_vdf(vdf_path: Path) -> List[Path]:
 def find_entropia_cache_path() -> Optional[Path]:
     """
     Find Entropia Universe cache folder.
-    Checks multiple locations:
-    1. Standard installation (ProgramData)
-    2. Steam installation
-    3. Other Steam libraries
+    Checks multiple locations based on platform.
     """
-    # Check standard installation first
-    standard_path = Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon")
-    if standard_path.exists() and list(standard_path.rglob("*.tga")):
-        return standard_path
+    # Check standard installation first (platform-specific)
+    if sys.platform == 'win32':
+        standard_paths = [
+            Path("C:/ProgramData/Entropia Universe/public_users_data/cache/icon"),
+        ]
+    else:
+        # Linux standard paths
+        standard_paths = [
+            Path.home() / ".local" / "share" / "Entropia Universe" / "public_users_data" / "cache" / "icon",
+        ]
     
-    # Check Steam installation
-    steam_path = find_steam_installation()
-    if steam_path:
+    for path in standard_paths:
+        if path.exists() and list(path.rglob("*.tga")):
+            return path
+    
+    # Check Steam installations
+    steam_paths = get_steam_paths()
+    
+    for steam_path in steam_paths:
         # Check default Steam library
         eu_path = steam_path / "steamapps" / "common" / "Entropia Universe" / "public_users_data" / "cache" / "icon"
         if eu_path.exists() and list(eu_path.rglob("*.tga")):
